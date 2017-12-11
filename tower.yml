@@ -1,0 +1,68 @@
+- hosts: localhost
+  connection: local
+  vars:
+   scm_cred_name: benscmdemo 
+   proj_name: bendemo
+   scm_url: "https://github.com/bennojoy/lamp_ec2_ansible.git"
+   scm_branch: "master"
+   inv_name: bent
+   org_name: Default
+   ssh_cred_name: "machine_access"
+   user_cred_name: root
+   user_cred_path: "~/.ssh/id_rsa"
+   playbook_name: "vpc.yml"
+  tasks:
+    - name: Add tower scm credentail
+      tower_credential:
+        name: "{{ scm_cred_name }}"
+        organization: "{{ org_name }}"
+        kind: scm
+        username: "testing"
+        password: "testing"
+        tower_config_file: "~/.tower_cli.cfg"
+
+    - name: Add tower project
+      tower_project:
+        name: "{{ proj_name }}"
+        scm_update_on_launch: True
+        description: "ben  project"
+        organization: "{{ org_name }}"
+        scm_credential: "{{ scm_cred_name }}"
+        scm_type: "git"
+        scm_url: "{{ scm_url }}"
+        scm_branch: "{{ scm_branch }}"
+        state: present
+        tower_config_file: "~/.tower_cli.cfg"
+
+    - name: Add tower inventory
+      tower_inventory:
+        name: "{{ inv_name }}"
+        description: "Our Three tier Servers"
+        organization: "{{ org_name }}"
+        state: present
+        tower_config_file: "~/.tower_cli.cfg"
+
+    - name: Add the servers to inventory
+      shell: tower-manage inventory_import --inventory-name={{ inv_name }} --source=/etc/ansible/hosts
+      become: true
+
+
+    - name: Add tower user credential
+      tower_credential:
+        name: "{{ ssh_cred_name }}"
+        organization: "{{ org_name }}"
+        kind: ssh
+        username: "{{ user_cred_name }}"
+        ssh_key_data: "{{ user_cred_path }}"
+        tower_config_file: "~/.tower_cli.cfg"
+
+    - name: Create tower Ping job template
+      tower_job_template:
+        name: "three_tier_app_demo"
+        job_type: run
+        inventory: "{{ inv_name }}"
+        project: "{{ proj_name }}"
+        playbook: "{{ playbook_name }}"
+        machine_credential: "{{ ssh_cred_name }}"
+        state: present
+        tower_config_file: "~/.tower_cli.cfg"
